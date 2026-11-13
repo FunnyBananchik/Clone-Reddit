@@ -10,10 +10,6 @@ import (
 	"redditclone/internal/user"
 )
 
-func handlerStatic(w http.ResponseWriter, r *http.Request) {
-
-}
-
 func main() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
@@ -22,6 +18,7 @@ func main() {
 	app := http.NewServeMux()
 	rep := post.NewRepository()
 	newUser := user.NewRepository()
+
 	fs := http.FileServer(http.Dir("./static"))
 	app.Handle("/static/", http.StripPrefix("/static/", fs))
 	app.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +27,17 @@ func main() {
 	app.HandleFunc("/manifest.json", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./static/html/manifest.json")
 	})
+
 	hand := handler.NewPostHandler(rep)
 	app.HandleFunc("GET /api/posts/", hand.GetPosts)
-	app.HandleFunc("/api/posts", hand.GetPosts)
+	//app.HandleFunc("/api/posts", hand.GetPosts)
 	app.HandleFunc("GET /api/post/{postID}", hand.GetPostId)
 	app.HandleFunc("GET /api/posts/{category}", hand.GetPostCategory)
 	auth := handler.NewAuthHandler(newUser, secret)
 	app.HandleFunc("POST /api/register", auth.Register)
 	app.HandleFunc("POST /api/login", auth.Login)
+	authMiddlewear := auth.AuthMiddlewear(http.HandlerFunc(hand.CreatePost))
+	app.Handle("POST /api/posts", authMiddlewear)
 	app.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./static/html/index.html")
 	})

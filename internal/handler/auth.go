@@ -38,10 +38,6 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-type ctxKey string
-
-const UserContextKey ctxKey = "userKey"
-
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Method: %s, Path: %s \n", r.Method, r.URL.Path)
 	var form *LoginForm
@@ -143,10 +139,15 @@ func errorJSON(w http.ResponseWriter, status int, mes any) {
 	})
 }
 
-func errorValidation(w http.ResponseWriter, status int, param string, mes any) {
-	writeJSON(w, status, map[string]any{
-		"param": param,
-		"error": mes,
+func errorValidation(w http.ResponseWriter, status int, param string, msg string) {
+	writeJSON(w, status, map[string]interface{}{
+		"errors": []map[string]string{
+			{
+				"location": "body",
+				"param":    param,
+				"msg":      msg,
+			},
+		},
 	})
 }
 

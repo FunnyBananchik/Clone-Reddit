@@ -3,7 +3,6 @@ package post
 import (
 	"errors"
 	"log"
-	"redditclone/internal/utils"
 	"sync"
 	"time"
 )
@@ -81,29 +80,9 @@ func (list *Repository) GetPostCategory(targetCat string) []Post {
 	return res
 }
 
-func (list *Repository) CreatePost(p Post) error {
+func (list *Repository) CreatePost(p Post) Post {
 	list.mu.Lock()
 	defer list.mu.Unlock()
-	newPost := Post{
-		Id:       utils.GenerateID(),
-		Title:    p.Title,
-		Category: p.Category,
-		Type:     p.Type,
-		Text:     p.Text,
-		URL:      p.URL,
-		Author:   p.Author,
-		Score:    1,
-		Votes: []Vote{
-			{
-				User: p.Author.Id,
-				Vote: 1,
-			},
-		},
-		Comments:         []Comment{},
-		Created:          time.Now(),
-		Views:            0,
-		UpvotePercentage: 100,
-	}
-	list.posts = append(list.posts, newPost)
-	return nil
+	list.posts = append(list.posts, p)
+	return p
 }
