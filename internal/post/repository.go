@@ -86,3 +86,15 @@ func (list *Repository) CreatePost(p Post) Post {
 	list.posts = append(list.posts, p)
 	return p
 }
+
+func (list *Repository) GetPostsByUser(username string) []Post {
+	list.mu.RLock()
+	defer list.mu.RUnlock()
+	posts := make([]Post, 0)
+	for _, val := range list.posts {
+		if val.Author.Name == username {
+			posts = append(posts, val)
+		}
+	}
+	return posts
+}

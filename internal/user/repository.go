@@ -63,3 +63,10 @@ func (r *RepositoryUsers) Login(username, password string) (User, error) {
 	}
 	return u.user, nil
 }
+
+func (r *RepositoryUsers) CheckExists(username string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.users[strings.ToLower(username)]
+	return ok
+}

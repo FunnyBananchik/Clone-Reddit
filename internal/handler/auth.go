@@ -38,6 +38,11 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+var (
+	ErrorBadUsername = errors.New("invalid username")
+	ErrorBadPassword = errors.New("invalid password")
+)
+
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Method: %s, Path: %s \n", r.Method, r.URL.Path)
 	var form *LoginForm
@@ -50,13 +55,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, 400, "cannot decode payload")
 		return
 	}
-	validUsername, _ := regexp.MatchString(`^[A-Za-z0-9_-]{1,32}$`, form.Username)
-	if !validUsername {
-		errorValidation(w, 422, "username", "bad username")
+	err := CheckLogAndPass(form.Username, form.Password)
+	if errors.Is(err, ErrorBadUsername) {
+		errorValidation(w, 422, "username", ErrorBadUsername.Error())
 		return
-	}
-	if utf8.RuneCountInString(form.Password) < 8 || len(form.Password) > 72 {
-		errorValidation(w, 422, "password", "bad password")
+	} else if errors.Is(err, ErrorBadPassword) {
+		errorValidation(w, 422, "password", ErrorBadUsername.Error())
 		return
 	}
 	u, err := h.users.Create(form.Username, form.Password)
@@ -66,7 +70,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		log.Printf("error create user %v", err)
-		errorJSON(w, 500, map[string]string{"message": "internal server error"})
+		errorJSON(w, 500, "internal server error")
 		return
 	}
 
@@ -82,7 +86,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	tokenString, err := token.SignedString(h.secret)
 	if err != nil {
 		log.Printf("error sign user %v", err)
-		errorJSON(w, 500, map[string]string{"message": "internal server error"})
+		errorJSON(w, 500, "internal server error")
 		return
 	}
 	writeJSON(w, 201, map[string]string{"token": tokenString})
@@ -100,18 +104,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		errorJSON(w, 400, "cannot decode payload")
 		return
 	}
-	validateUsername, _ := regexp.MatchString(`^[A-Za-z_-]{1,32}$`, form.Username)
-	if !validateUsername {
-		errorValidation(w, 422, "username", "bad username")
+	err := CheckLogAndPass(form.Username, form.Password)
+	if errors.Is(err, ErrorBadUsername) {
+		errorValidation(w, 422, "username", ErrorBadUsername.Error())
 		return
-	}
-	if utf8.RuneCountInString(form.Password) < 8 || len(form.Password) > 72 {
-		errorValidation(w, 422, "password", "bad password")
+	} else if errors.Is(err, ErrorBadPassword) {
+		errorValidation(w, 422, "password", ErrorBadUsername.Error())
 		return
 	}
 	u, err := h.users.Login(form.Username, form.Password)
 	if errors.Is(err, user.ErrorUnknownUser) {
-		errorValidation(w, 401, "login", "unknown username or password")
+		errorJSON(w, 401, "unknown username or password")
 		return
 	}
 	now := time.Now()
@@ -126,7 +129,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	tokenString, err := token.SignedString(h.secret)
 	if err != nil {
 		log.Printf("error sign user %v", err)
-		errorJSON(w, 500, map[string]string{"message": "internal server error"})
+		errorJSON(w, 500, "internal server error")
 		return
 	}
 	writeJSON(w, 200, map[string]string{"token": tokenString})
@@ -134,8 +137,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 func errorJSON(w http.ResponseWriter, status int, mes any) {
 	writeJSON(w, status, map[string]any{
-		"status": status,
-		"error":  mes,
+		"message": mes,
 	})
 }
 
@@ -157,4 +159,15 @@ func writeJSON(w http.ResponseWriter, status int, mes any) {
 	if err := json.NewEncoder(w).Encode(mes); err != nil {
 		log.Printf("encode response: %v", err)
 	}
+}
+
+func CheckLogAndPass(username, password string) error {
+	validUsername, _ := regexp.MatchString(`^[A-Za-z0-9_-]{1,32}$`, username)
+	if !validUsername {
+		return ErrorBadUsername
+	}
+	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
+		return ErrorBadPassword
+	}
+	return nil
 }

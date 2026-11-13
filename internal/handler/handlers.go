@@ -21,14 +21,20 @@ type PostsInterface interface {
 	GetPostId(string) (post.Post, error)
 	GetPostCategory(string) []post.Post
 	CreatePost(post.Post) post.Post
+	GetPostsByUser(string) []post.Post
+}
+
+type UsersInterface interface {
+	CheckExists(string) bool
 }
 
 type PostHandler struct {
 	posts PostsInterface
+	users UsersInterface
 }
 
-func NewPostHandler(posts PostsInterface) *PostHandler {
-	return &PostHandler{posts: posts}
+func NewPostHandler(posts PostsInterface, users UsersInterface) *PostHandler {
+	return &PostHandler{posts: posts, users: users}
 }
 
 type PostRequest struct {
@@ -149,6 +155,25 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	}
 	p := h.posts.CreatePost(newPost)
 	writeJSON(w, 201, p)
+}
+
+func (h *PostHandler) GetPostsByUser(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("username")
+	if validUsername, _ := regexp.MatchString(`^[A-Za-z0-9_-]{1,32}$`, username); !validUsername {
+		errorValidation(w, 400, "username", "bad username")
+		return
+	}
+	if !h.users.CheckExists(username) {
+		errorJSON(w, 404, "user not found")
+		return
+	}
+	posts := h.posts.GetPostsByUser(username)
+	if len(posts) > 0 {
+		sort.Slice(posts, func(i, j int) bool {
+			return posts[i].Created.After(posts[j].Created)
+		})
+	}
+	writeJSON(w, 200, posts)
 }
 
 func CheckValid(pattern, param, nameParam string, min, max int) error {

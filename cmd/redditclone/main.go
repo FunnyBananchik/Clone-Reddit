@@ -28,11 +28,12 @@ func main() {
 		http.ServeFile(w, r, "./static/html/manifest.json")
 	})
 
-	hand := handler.NewPostHandler(rep)
+	hand := handler.NewPostHandler(rep, newUser)
 	app.HandleFunc("GET /api/posts/", hand.GetPosts)
 	//app.HandleFunc("/api/posts", hand.GetPosts)
 	app.HandleFunc("GET /api/post/{postID}", hand.GetPostId)
 	app.HandleFunc("GET /api/posts/{category}", hand.GetPostCategory)
+	app.HandleFunc("GET /api/user/{username}", hand.GetPostsByUser)
 	auth := handler.NewAuthHandler(newUser, secret)
 	app.HandleFunc("POST /api/register", auth.Register)
 	app.HandleFunc("POST /api/login", auth.Login)
